@@ -486,6 +486,7 @@ Calculate OriAs
 
 ```{r}
 ##'###############################################################Without efficiency
+##Note: Assortativity is better calculated on continuous values, work is in progress to define better measures for binary variables (presence/absence of oris for example). However, we have observed that for practical purposes the results of looking at assortativity of origin presence are in line with those obtained looking at origin efficiency (a continuous variable). 
 
 vecl=lapply(oril[sel], function(x){
 vec=rep(0, length(V(Gchicwt)))
