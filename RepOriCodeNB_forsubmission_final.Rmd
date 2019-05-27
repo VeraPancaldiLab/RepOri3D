@@ -203,7 +203,7 @@ return(unique(x$fragment))
 names(oril)=names(matchl)
 
 Classic_oril=oril
-save(bedlist, matlist, Classic_oril, file='../RepOriData/Data_may19.Rdata')
+save(bedlist, matlist, Classic_oril, file=paste(datapath,'Data_may19.Rdata', sep='/'))
 print(sapply(oril, length))
 
 
@@ -295,7 +295,6 @@ gra=induced.subgraph(Gchicwt, V(Gchicwt)[which(V(Gchicwt)$name %in% x)], impl='c
 gra=(simplify(gra))
 return(gra)
 })
-save(Classic_Goril, Classic_bedlist, Classic_featefmat,Goril_all,Classic_Goril_leaves, orinodes, file=paste(datapath,'ClassicOri.Rdata', sep='/'))
 
 write.table(get.edgelist(Goril[['ALL-ORI']]), paste(datapath,'PCHiC_AllOriWT.txt', sep='/'), quote=F, sep='\t')
 OriNet=delete.vertices(Goril[['ALL-ORI']], V(Goril[['ALL-ORI']])[which(degree(Goril[['ALL-ORI']])==0)])
@@ -558,23 +557,24 @@ Plots of OriAs
 
 ####look for assortativity of oris in whole network 
 pdf(paste(datapath,'Figures/Supp/Supp4B_OriAs_wholePCHiC.pdf', sep='/'))
-plot( colSums(featmat)[sel],unlist(OriAs), ylim=c(-0.05,0.1), pch=20,col=cols[sel],xlab='Number of nodes containing origins in PCHiC', ylab='OriAs in PCHiC network',
-main='Assortativity of origins in PCHiC network')
+par(oma=c(1,1,1,1))
+plot( colSums(featmat)[sel],unlist(OriAs), ylim=c(-0.04,0.08), pch=20,col=cols[sel],xlab='Number of nodes containing origins in PCHiC', ylab='OriAs in PCHiC network',
+ cex.axis=1.5, cex.lab=1.5)
 for (i in 1:100){
 points( colSums(featmat)[sel],chasrandsimpldf[,i], col=cols[sel])
 }
-text( colSums(featmat)[sel],unlist(OriAs), pos=1,offset=-6, sel, cex=1, srt=90)
+text( colSums(featmat)[sel],unlist(OriAs), pos=1,offset=-10, sel, cex=1.5, srt=90)
 points( colSums(featmat)[sel],unlist(OriAs), col='black')
 abline(h=0)
 dev.off()
 
 pdf(paste(datapath,'Figures/Supp/Supp4C_OriAs_POE.pdf', sep='/'))
-plot( colSums(featmat[which(rownames(featmat) %in% V(Gchicwtpromoe)$name),])[sel],unlist(OriAspoe), ylim=c(-0.2,0.1), pch=20,col=cols[sel],xlab='Number of nodes containing origins in PO subnetwork', ylab='OriAs in PO subnetwork',
-main='Assortativity of origins in PCHiC POE network')
+par(oma=c(1,1,1,1))
+plot( colSums(featmat[which(rownames(featmat) %in% V(Gchicwtpromoe)$name),])[sel],unlist(OriAspoe), ylim=c(-0.2,0.2), pch=20,col=cols[sel],xlab='Number of nodes containing origins in PO subnetwork', ylab='OriAs in PO subnetwork',cex.axis=1.5, cex.lab=1.5)
 for (i in 1:100){
 points( colSums(featmat[which(rownames(featmat) %in% V(Gchicwtpromoe)$name),])[sel],chasoriAsrandprespromoeldf[,i], col=cols[sel])
 }
-text( colSums(featmat[which(rownames(featmat) %in% V(Gchicwtpromoe)$name),])[sel],unlist(OriAspoe), pos=1,offset=-4, sel, cex=1, srt=90)
+text( colSums(featmat[which(rownames(featmat) %in% V(Gchicwtpromoe)$name),])[sel],unlist(OriAspoe), pos=1,offset=-8, sel, cex=1.5, srt=90)
 points( colSums(featmat[which(rownames(featmat) %in% V(Gchicwtpromoe)$name),])[sel],unlist(OriAspoe), col='black')
 abline(h=0)
 dev.off()
@@ -631,6 +631,7 @@ Final plots - no efficiency
 #####
 
 pdf(paste(datapath,'Figures/Assortativity/Figure4C_OriAs_PP_withrandtss.pdf', sep='/'))
+par(oma=c(1,1,1,1))
 plot( colSums(featmat[which(rownames(featmat) %in% baitnames),]),OriAspp,ylim=c(-0.02,0.2 ), pch=20,col=cols[sel],xlab='Number of nodes in PP subnetwork containing origins', ylab='OriAs in PP subnetwork',
 main='Assortativity of origin presence in promoter subnetwork\n classic dataset')
 for (i in 1:100){
@@ -925,6 +926,11 @@ Goril_enames=lapply(Goril, function(x){
   
 })
 
+elGori=get.edgelist(Gdistori)
+rownames(elGori)=paste(elGori[,1], elGori[,2], sep='-')
+E(Gdistori)$enames=rownames(elGori)
+
+
 summary(abs(as.numeric(E(Gdistori)$dist)))
 summary(abs(as.numeric(E(Gdistnonori)$dist)))
 
@@ -1078,9 +1084,10 @@ legend('topleft', legend=c('PCHiC interTAD', 'PCHiC intraTAD', 'Ori interTAD', '
 
 pdf(paste(datapath,'Figures/DistanceDep/Distance_distribution_allcombined.pdf', sep='/'))
 #png('../RepOriCode/Figures/DistanceDep/Distance_distribution_allcombined.png')
-plot(density(log10(distintertadori[!is.na(distintertadori)])), col='darkgreen',lwd=3,  xlab='Distance spanned (log10 bases)', main='Distribution of distances in origin network\n dark green inter TAD ,cyan intraTAD, black=all ori ', ylim=c(0,1), cex=1.5, cex.lab=1.5, cex.axis=1.5)
+plot(density(log10(distintertadori[!is.na(distintertadori)])), col='darkgreen',lwd=3,  xlab='Distance spanned (log10 bases)',  ylim=c(0,1), cex=1.5, cex.lab=1.5, cex.axis=1.5, main='')
 points(density(log10(distintratadori[!is.na(distintratadori)])), type='l',lwd=3, col='cyan')
 points(density(log10(distori[!is.na(distori)])), type='l',lwd=3, col='black')
+legend(6.5,1 ,lty=1, lwd=3,col=c('black', 'cyan', 'darkgreen'), legend=c('All', 'Intra-TAD', 'Inter-TAD'), bty="n", cex=1.5)
 dev.off()
 
 ```
@@ -1088,7 +1095,7 @@ dev.off()
 Check that when interactions are interTAD they unite TADs with similar RT (more similar than random interactions)
 ```{r}
 #Load RT data
-load(paste(datapath,'data/Hiratani_fragrankmed.Rdata', sep='/'))
+load(paste(datapath,'Hiratani_fragrankmed.Rdata', sep='/'))
 ###now check if intertads interactions mean different RT
 ##calculate difference in RT rank in fragments united in network
 RTdifints=apply(el,1, function(x){
@@ -1118,9 +1125,15 @@ combfragrank=data.frame(sample(fragrankmed[,1],length(RTdiforints)), sample(frag
 randdif=apply(combfragrank, 1, function(x){
 return(x[1]-x[2])
 })
-#pdf('Figures/Supp/RTdif_analysis.pdf')
-boxplot(abs(RTdiforints)[intere], abs(RTdiforints)[setdiff(names(RTdiforints), intere)], abs(randdif),varwidth=T, names=c('within tad', 'intertad', 'random pairs of fragments'), main='Difference in replication timing')
-#dev.off()
+```
+
+```{r}
+
+pdf(paste(datapath,'Figures/Supp/Supp5D_RTdif_analysis.pdf', sep='/'), width=12, height=12)
+par(oma=c(1,1,1,0))
+par(mar=c(4,6,6,1))
+boxplot(abs(RTdiforints)[setdiff(names(RTdiforints), intere)],abs(RTdiforints)[intere], abs(randdif),varwidth=T, names=c('Intra-TAD', 'Inter-TAD', 'Random node pairs'), ylab='RT Difference between node pairs', cex.lab=3, cex.axis=2.5)
+dev.off()
 
 ```
 
@@ -1160,7 +1173,7 @@ Calculate TAD efficiencies
 
 
 ##match tads with efficiencies
-doms=tads
+doms=tad
 library(GenomicRanges)
 colnames(doms)=c('chr', 'start', 'end')
 beddoms=with(doms, GRanges(chr, IRanges(start, end)))
@@ -1232,30 +1245,27 @@ TADrandchas=calc_assort(Gtads,tadWTrand)
 
 
 
-######For this part see RepOriCodeRT.Rmd
-
-Part II Correlations of efficiency, degree and RT
+Part II Correlations of efficiency, degree
 
 Correlation degree and efficiency
+
+
+For RT correlations this part see RepOriCodeRT_forsubmission.Rmd
+
 ```{r}
-
 write.table(data.frame(rownames(featefmat),featefmat),'Featefmat_forcytojan19.txt', quote=F, sep='\t', row.names=F)
-
 Goril=Classic_Goril
-
-
 sel2=c('WT', 'APH', 'CDC6')
 
-
-pdf(paste(datapath,'Figures/Efficiency_deg_3datasets.pdf', sep='/'), width=12, height=10)
-#featefmat=data.frame(Classic_featefmat)
-
+pdf(paste(datapath,'Figures/Supp/Efficiency_deg_3datasets.pdf', sep='/'), width=16, height=10)
+par(tcl=0.4)
+par(oma=c(3,3,3,0))
+par(mar=c(8,8,8,3))
 par(mfrow=c(1,3))
 for (ds in sel2[-c(4)]){
 com=V(Goril[[ds]])$name[which(V(Goril[[ds]])$name %in% rownames(featefmat)[which(featefmat[,ds]>0)])]
 deg=degree(Goril[[ds]])[com]
 ef=featefmat[com,ds]
-
 c=cor.test(ef,deg)
 if(c$p.value<0.0001){
 star='***'
@@ -1271,17 +1281,20 @@ if (max(deg)>4){
   lim=4
   lim2='>5'
 }
-
-
-
-boxplot(ef~deg, varwidth=T,  border=cols[ds], names=c(0:lim,lim2),  outline=F, xlab='Degree', ylab='Origin efficiency',
- main=paste(ds,', cor=',round(c$est,2),star), cex.axis=1.5, cex.lab=1.5)
-
-
+if (ds=='WT'){
+boxplot(ef~deg, varwidth=T,  border=cols[ds], names=c(0:lim,lim2),  outline=F, xlab='Degree', ylab='Origin efficiency',ylim=c(2,20),
+ main=paste(ds,', cor=',round(c$est,2),star), cex.axis=2.5, cex.lab=2.5, cex.main=2.5, tcl=0)
+}
+if (ds!='WT'){
+  boxplot(ef~deg, varwidth=T,  border=cols[ds], names=c(0:lim,lim2),  outline=F, xlab='Degree', ylab='',ylim=c(2,20),
+ main=paste(ds,', cor=',round(c$est,2),star), cex.axis=2.5, cex.lab=2.5, cex=2.5, cex.main=2.5, tcl=0)
+}
 }
 dev.off()
 
-#pdf('../RepOriData/FiguresNov18/Efficiency_vs_Degree_allori.pdf')
+
+
+pdf(paste(datapath,'Figures/Supp/Efficiency_vs_Degree_allori.pdf', sep='/'))
 boxplot(ef~deg, varwidth=T,  border=cols[ds], names=c(0:lim,lim2),  outline=F, xlab='Degree', ylab='Origin efficiency',
  main=paste('Classic dataset\n', ds, '\ncor=',round(c$est,2),star))
 dev.off()
@@ -1312,37 +1325,6 @@ boxplot(ef~deg, varwidth=T,  border=cols[ds], names=c(0:lim,lim2),  outline=F, x
 dev.off()
 ```
 
-```{r}
-#fragef=read.table('../RepOriData/efficiency_pchic_fragments_mm9/efficiencies_of_pchic_fragmentssns_mm9.bed', sep='\t', header=T)
-#colnames(fragef)=c('chrom', 'start', 'end', 'rawscore',  'normraw', 'cornotnorm', 'cornorm')
-
-#fragefproc=fragef[!duplicated(fragef[,c(1:3)]),]
-#rownames(fragefproc)=paste(gsub('chr', '',fragefproc[,1]), fragefproc[,2], fragefproc[,3], sep='_')
-#fragefproc=fragefproc[,-c(1:3)]
-#chasfragpp=calc_assort(Gchicwtprom, fragefproc)
-#chasfragpp
-
-```
-
-```{r}
-####Now plot
-
-#pdf('Figures/Assortativity/classicOrief_PP.pdf')
-#plot( colMeans(fragefproc[which(rownames(fragefproc) %in% baitnames),c(2,4)]),chasfragpp[c(2,4)],ylim=c(-0.2,0.2), pch=20,xlab='Mean efficiency in promoter nodes', ylab='Assortativity in PP contacts',col='red',
-#main='Assortativity of fragment efficiency in promoter subnetwork\n classic dataset')
-#for (i in 1:100){
-#points( colMeans(fragefproc[which(rownames(fragefproc) %in% baitnames),c(2,4)]),chasorirandldf[c(2,4),i], col='grey', pch=20)
-#}
-#abline(h=0)
-##dev.off()
-
-#randldf_cornorm=unlist(lapply(chasorirandldf, function(x){
- # return(x[4])
-  
-  
-#}))
-
-```
 
 Exporting files for cytoscape
 ```{r}
@@ -1360,12 +1342,12 @@ write.table(data.frame(V(Goril[['WT']])$name,degree(Goril[['WT']])), '../RepOriC
 ```{r}
 
 
-chasonlyori=calc_assort(Goril[['ALL-ORI']], featefmat))
+chasonlyori=calc_assort(Goril[['ALL-ORI']], featefmat)
 ##randomization for whole ori network
 
 randonlyoril=list()
 for (i in 1:100){
-print(i)
+#print(i)
 randonlyoril[[i]]=apply(featefmat[which(rownames(featefmat) %in% V(Goril[['ALL-ORI']])$name),], 2, function(x){
 rand=sample(x, length(x),replace=F)
 return(rand)
@@ -1394,4 +1376,30 @@ text( colMeans(featefmat[which(rownames(featefmat) %in% V(Goril[['ALL-ORI']])$na
 points( colMeans(featefmat[which(rownames(featefmat) %in% V(Goril[['ALL-ORI']])$name),sel]),chasonlyori[sel], col='black')
 abline(h=0)
 dev.off()
+
+
+plot( colMeans(featefmat[which(rownames(featefmat) %in% V(Goril[['ALL-ORI']])$name),sel]),chasonlyori[sel], pch=20,col=cols[sel],xlab='Mean origin efficiency in origin containing nodes',
+      ylim=c(-0.05,0.14),ylab='Assortativity in origin containing fragment contacts',
+main='Assortativity of origin efficiency origin subnetwork')
+for (i in 1:100){
+points( colMeans(featefmat[which(rownames(featefmat) %in% V(Goril[['ALL-ORI']])$name),sel]),chasonlyorirandldf[sel,i], col=cols[sel])
+}
+text( colMeans(featefmat[which(rownames(featefmat) %in% V(Goril[['ALL-ORI']])$name),sel]),chasonlyori[sel], pos=1,offset=-2.5, sel, cex=0.7, srt=90)
+points( colMeans(featefmat[which(rownames(featefmat) %in% V(Goril[['ALL-ORI']])$name),sel]),chasonlyori[sel], col='black')
+abline(h=0)
+
+chasonlyoril=lapply(Goril, function(x){
+  return(calc_assort(x, featefmat))
+})
+chas=calc_assort(Goril[['WT']], featefmat)
+  plot( mean(featefmat[which(rownames(featefmat) %in% V(Goril[['WT']])$name),'WT']),chas[['WT']], pch=20,col=cols[sel],ylim=c(-0.1,0.5),
+main='WT')
+for (s in 1 :length(sel)){
+  print(sel[s])
+  print(mean(featefmat[which(rownames(featefmat) %in% V(Goril[[sel[s]]])$name),sel[s]]))
+  chas=calc_assort(Goril[[s]], featefmat)
+  points( mean(featefmat[which(rownames(featefmat) %in% V(Goril[[sel[s]]])$name),sel[s]]),chas[sel[s]], pch=20,col=cols[sel],
+main=sel)
+  text(mean(featefmat[which(rownames(featefmat) %in% V(Goril[[sel[s]]])$name),sel[s]]),chas[sel[s]], label=sel[s])
+}
 ```
