@@ -30,9 +30,9 @@ Analysis of distance spanned in interactions (inter/intra TAD)
 datapath='/home/vera/dbpersonal/Dropbox_work/RepOriData'
 source('assort_script.R')
 source('coloursdef.R')
-require(igraph)
+require('igraph')
 require('data.table')
-require(GenomicRanges)
+require('GenomicRanges')
 ```
 
 Reading PCHiC data
