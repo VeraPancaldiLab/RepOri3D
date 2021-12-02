@@ -1,0 +1,512 @@
+Steps for origin efficiency calculation
+==========
+
+#####**Summary**
+1. Downsampling
+2. Obtaining coordinates of origins
+3. Calculate efficiency of all origins in a sample
+4. Normalize efficiencies and remove background
+5. Merge efficiencies according to the pre-defined classic origins 
+
+***
+
+```{r setwd, eval = T, message = FALSE, echo = F}
+setwd("~/projects/JodkowskaPancaldi/")
+```
+
+```{r experiments, eval = T, message = FALSE, echo = T}
+library("rtracklayer")
+library("GenomicRanges")
+library("xlsx")
+experiments <- c("JMR2", "MGC3", "MGC4", "MGC5", "MGC7", "SNS_H1_WT_II")
+```
+
+
+```{r LIBRARIES, eval = T, message = FALSE, echo = F}
+# library("Rsamtools")
+# library("CoverageView")
+# library("ggplot2")
+
+
+# "outputJMFinal_JMR2_MD.bam"         #  JMR2 -CDC6 o/e II
+# # "outputJMFinal_MGC1_MD.bam"       #  input file
+# "outputJMFinal_MGC3_MD.bam"         # MGC3 - CDC6 o/e I
+# "outputJMFinal_MGC4_MD.bam"         # MGC4 - APH I
+# "outputJMFinal_MGC5_MD.bam"         # MGC5 - WT II
+# "outputJMFinal_MGC7_MD.bam"         #  MGC7 - APH II
+# "outputJMFinal_SNS_H1_WT_II_MD.bam" # SNS - WT I
+
+```
+
+#### **1. Downsampling**
+Total reads per sample calculated using function:
+
+*samtools view -c SAMPLE.bam*
+
+Total reads per sample:
+
+```{r total_reads, eval = T, message = FALSE, echo = F}
+total_reads <- c()
+for(exp in experiments) {
+  total_reads <- c(total_reads, 
+                   read.table(paste0("bams/total_reads_", exp, ".txt"))$V1)
+  names(total_reads)[length(total_reads)] <- exp
+}
+print(total_reads)
+```
+
+MGC4 is the .bam with less reads. The rest need downsampling. 
+
+Downsampling (10 times per sample) done using samtools
+
+*samtools view -b -s PERCENTAGE_READS bams/SAMPLE.bam > bams/downsampled/downsampled_*SAMPLE*_seed*SEED_NUM*.bam*
+
+where the percentage of reads is the total reads in MGC4/total reads in sample * 100
+```{r DOWNSAMPLING, eval = T, message = FALSE, echo = F}
+min(total_reads)/total_reads
+```
+
+
+```{r downsampling_check, eval = F, message = FALSE, echo = F}
+names(total_reads) <- experiments
+total_reads
+# JMR2         MGC3         MGC4         MGC5         MGC7         SNS_H1_WT_II
+# 60639981     77850848     33994540     64910836     42562298     54481120
+```
+
+MGC4 IS THE BAM FILE WITH LESS READS. I need to downsample each bam to MGC4 total reads
+Which is the percentage for each sample
+Proportion of reads needed to have the same as the bam file with less reads:
+min(total_reads)/total_reads
+
+Downsampling with 
+```{r downsampling, eval = F, message = FALSE, echo = F}
+/usr/bin/samtools view -b -s $j$percent_reads outputJMFinal_$i$final_bam > downsampled/$i\_seed$j.bam
+# Where $j is the seed
+# Two runs with e.g. view -s 123.1 / view -s 456.1 should select two distinct randomly-selected 10% subsets
+```
+
+***
+#### **2. Obtaining coordinates of origins**
+To calculate the efficiency of all origins in each sample, we first take the called origins in mm9 (Picard origins)
+
+Liftover mm10 to mm9 is needed
+
+```{r liftover_picard_to_mm10, eval = F, message = FALSE, echo = T}
+mm10ToMm9.chain <- import.chain("mm10ToMm9.over.chain")
+mm9ToMm10.chain <- import.chain("mm9ToMm10.over.chain")
+
+# ORIGINAL ORIGINS (PICARD)
+for(i in 1:length(experiments)) {
+  bed <- read.table(paste0("picard_mm9/", experiments[i],  ".PICARD.efficiency.mm9.bed"))[,1:3]
+  
+  # LiftOver to mm10
+  # Creating GRanges for liftover
+  gr <- makeGRangesFromDataFrame(bed,
+                                 seqinfo=NULL,
+                                 seqnames.field="V1", start.field="V2", end.field=c("V3"),
+                                 starts.in.df.are.0based=FALSE)
+  
+  gr <- gr[seqnames(gr) %in% names(mm9ToMm10.chain)]
+  
+  lifted <- unlist(liftOver(gr, mm9ToMm10.chain))
+  
+  df_lifted <- as.data.frame(lifted, row.names = NULL)
+  
+  # Save table
+  write.table(df_lifted[, 1:3], quote = F, row.names = F,
+              col.names = F, sep = "\t",
+              file = paste0("picard_efficiencies_mm10/lifted_to_mm10_", 
+                            experiments[i], "_origin_coords.bed"))
+}
+```
+
+
+***
+
+#### **3. Efficiency** 
+Efficiency: Sum of the coverage of all bases in an origin)
+Calculated using samtools bedcov function (with default parameters)
+This function returns the sum of per-base coverage in each region. 
+
+**For MGC4 (no downsampling)**
+
+*/usr/bin/samtools bedcov lifted_to_mm10_MGC4_origin_coords.bed  ../bams/MGC4.bam >  picard_efficiencies_mm10/bedcov_output_MGC4.bed*
+
+**For samples that needed downsampling (JMR2 MGC1 MGC3 MGC5 MGC7 SNS_H1_WT_II)**
+
+For each downsampling: 
+
+*/usr/bin/samtools bedcov lifted_to_mm10_SAMPLE_origin_coords.bed ../bams/downsampled/downsampled_SAMPLE_SEED.bam > picard_efficiencies_mm10/bedcov_output_SAMPLE_SEED.bed;*       
+
+
+
+```{r median_efficiency, eval = F, message = FALSE, echo = T}
+# Median efficiency of downsampled experiments
+for(exp in experiments[!experiments %in% "MGC4"]) {
+  # Coordinates (Get them from seed1)
+  efficiencies_per_experiment <- read.table(paste0("bedcov_output_",
+                                                   exp, "_seed1.bed"),
+                                            stringsAsFactors = F)[, 1:3]
+  
+  for(seed_num in 1:10) {
+    efficiencies_per_experiment <- cbind(efficiencies_per_experiment,
+                                         downsampled_eff = read.table(paste0("bedcov_output_", 
+                                                                             exp, "_seed",
+                                                                             seed_num, ".bed"),
+                                                                      stringsAsFactors = F)[, 4])
+  }
+ 
+  median_downsampled_efficiency <- cbind(efficiencies_per_experiment[,1:3], 
+                                         raw_score = apply(efficiencies_per_experiment[,
+                                                                                       4:ncol(efficiencies_per_experiment)], 1, median))
+  
+  #Save median of downsamplings
+  write.table(median_downsampled_efficiency,
+              file = paste0(exp, "median_efficiency_of_downsampled.bed"),
+              quote = F, row.names = F,
+              col.names = F)
+}
+
+
+```
+
+
+***
+
+#### **4. Efficiency normalization** 
+* Removing background
+* By origin size
+* Normalization by size and removal of background
+
+To remove the background, we looked at the efficiency at regions out of oring peaks, with the sizes similar to the origins'. 
+These are values of efficiency of the background (regions that are not origins)
+We calculated regression lines that explained the relation of range size and background noise, which we can remove from the calculated efficiency. 
+
+See script *background_regression_line_functions.R* to see how the background functions were generated 
+
+
+```{r regression_functions, eval = F, message = FALSE, echo = T}
+# Load the functions for the regression lines that explain the background of each sample
+functions_background_efficiency <- read.table("regression_lines_of_random_efficiencies_ALL.txt")
+
+# Paths to files
+efficiency_bedfiles <- list.files("picard_efficiencies_mm10/")
+efficiency_bedfiles <- efficiency_bedfiles[grepl("median", efficiency_bedfiles)]
+efficiency_bedfiles <- c(efficiency_bedfiles, "bedcov_output_MGC4.bed")
+
+for(bedmm10 in efficiency_bedfiles) {
+  
+  # Selecting background function
+  if(grepl("MGC4", bedmm10)) {
+    function_to_use <- functions_background_efficiency["output_MGC4.bed", ]
+    name_dataset <- "MGC4"
+  } else  {
+    
+    name_dataset <- gsub(pattern = "median_efficiency_of_downsampled.bed", 
+                         replacement = "", 
+                         bedmm10)
+    function_to_use <- functions_background_efficiency[paste0("downsampled_", name_dataset, ".bed"),]
+  }
+  
+  original_bedfile <- read.table(paste0("picard_efficiencies_mm10/", bedmm10),
+                                 stringsAsFactors = F, header = F)
+  
+  colnames(original_bedfile) <- c("chr", "start", "end", "raw_score")
+  # Origin size
+  sizes <- original_bedfile$end - original_bedfile$start + 1
+  
+  original_bedfile$norm_raw <- original_bedfile$raw_score/sizes
+  
+  # Calculating background
+  background_per_origin <- as.numeric(function_to_use["intercept"]) + as.numeric(function_to_use["slope"])*(sizes)
+  
+  
+  bed_removing_background <- cbind(original_bedfile, background_corrected = original_bedfile$raw_score - background_per_origin)
+  bed_removing_background <- cbind(bed_removing_background, norm_background_corrected = bed_removing_background$background_corrected/sizes)
+  
+  # Saving mm10
+  
+  if(name_dataset == "MGC4") {
+  write.table(bed_removing_background,
+              file = paste0("normalized_efficiency/efficiencies_", name_dataset, "_mm10.bed" ),
+              quote = F,
+              sep = "\t",
+              row.names = F)
+  } else {
+  write.table(bed_removing_background,
+              file = paste0("normalized_efficiency/efficiencies__DOWNSAMPLED_", name_dataset, "_mm10.bed" ),
+              quote = F,
+              sep = "\t",
+              row.names = F)
+  }
+  
+  
+  # Liftover to mm9
+  gr <- makeGRangesFromDataFrame(bed_removing_background,
+                                 keep.extra.columns=TRUE,
+                                 ignore.strand=FALSE,
+                                 seqinfo=NULL,
+                                 seqnames.field="chr", start.field="start", end.field=c("end"),
+                                 strand.field="strand",
+                                 starts.in.df.are.0based=FALSE)
+  
+  
+  lifted <- unlist(liftOver(gr, mm10ToMm9.chain))
+  
+  
+  df_lifted <- as.data.frame(lifted,                  
+                             row.names = NULL)
+  
+  # Not interested in having * strand column/ width column
+  df_lifted <- df_lifted[, colnames(df_lifted) != "strand"]
+  df_lifted <- df_lifted[, colnames(df_lifted) != "width"]
+  
+  colnames(df_lifted)[colnames(df_lifted) == "seqnames"] <- "chr"
+  
+  
+  # # saving mm9
+  
+  if(name_dataset == "MGC4") {
+    write.table(df_lifted,
+                file = paste0("normalized_efficiency/efficiencies_", name_dataset, "_mm9.bed" ),
+                quote = F,
+                sep = "\t",
+                row.names = F)
+  } else {
+    write.table(df_lifted,
+                file = paste0("normalized_efficiency/efficiencies__DOWNSAMPLED_", name_dataset, "_mm9.bed" ),
+                quote = F,
+                sep = "\t",
+                row.names = F)
+  }
+  
+  
+}
+```
+
+*** 
+
+#### **5. Efficiency of merged origins**
+Origins are not the same in the replicates, and they have been merged to obtain a set of reliable origins per condition. In order to have one efficiency for each origin, we calculate the mean of the individual experiments. 
+We take into account the Classic merge of origins (see methods).
+
+
+
+```{r merge_replicates, eval = F, message = FALSE, echo = T}
+# Replicates per condition
+pairs_of_experiments_and_name <- rbind(c("cdc6", "MGC3", "JMR2"), 
+                                       c("aph", "MGC4", "MGC7"),
+                                       c("wt", "SNS", "MGC5"))
+
+### Subsets of origins
+experimental_conditions_per_group <- list(wt = c("SNS_H1_WT_II", "MGC5"),
+                                          wt_exclusive_vsAPH = c("SNS_H1_WT_II", "MGC5"),
+                                          wt_exclusive_vsCDC6 = c("SNS_H1_WT_II", "MGC5"),
+                                          aph = c("MGC4", "MGC7"),
+                                          aph_responsive = c("MGC4", "MGC7"),
+                                          cdc6 = c("JMR2", "MGC3"),
+                                          cdc6_responsive = c("JMR2", "MGC3"),
+                                          both_aph_cdc6 = c("MGC4", "MGC7", "JMR2", "MGC3"),
+                                          constitutive = c("SNS_H1_WT_II", "MGC5", "MGC4",
+                                                           "MGC7", "JMR2", "MGC3"))
+
+# Coordinates of all origins and subsets of origins 
+# mm10
+# WT
+
+wt <- read.table(file =  "classic_origins/mm10/WT_classic_efficiency.xls",
+                 stringsAsFactors = F)
+wt_exclusive_vsAPH <- read.table(file = "classic_origins/mm10/WTexclusive_vs_APH_classic_efficiency.xls",
+                                 stringsAsFactors = F)
+wt_exclusive_vsCDC6 <- read.table(file = "classic_origins/mm10/WTexclusive_vs_CDC6_classic_efficiency.xls",
+                                  stringsAsFactors = F)
+
+
+# APH
+aph <- read.table(file = "classic_origins/mm10/APH_classic_efficiency.xls",
+                  stringsAsFactors = F)
+# aph_responsive is a subset of aph
+aph_responsive <- read.table(file = "classic_origins/mm10/APHresponsive_classic_efficiency.xls",
+                             stringsAsFactors = F)
+
+# CDC6
+cdc6 <- read.table(file = "classic_origins/mm10/CDC6_classic_efficiency.xls",
+                   stringsAsFactors = F)
+
+# cdc6_responsive is a subset of cdc6
+cdc6_responsive <- read.table(file = "classic_origins/mm10/CDC6responsive_classic_efficiency.xls",
+                              stringsAsFactors = F)
+
+# both CDC6 and APH(subset de cdc6 con eficiencias de cdc6)
+both_aph_cdc6 <- read.table(file = "classic_origins/mm10/CDC6andAPHresponsive_classic_efficiency.xls",
+                            stringsAsFactors = F)
+# CONSTITUTIVE
+constitutive <- read.table(file = "classic_origins/mm10/constitutive_classic_efficiency.xls",
+                           stringsAsFactors = F)
+constitutive_all <- constitutive
+
+# Subset of origins per experimental condition
+for(group in names(experimental_conditions_per_group)[9]) {
+  experimental_group <- get(group) # mm10
+  experiments_to_take <- experimental_conditions_per_group[[group]]
+  
+
+  for(experiment in experiments_to_take) {
+      # Take bed file with efficiencies in mm10
+    if(experiment == "MGC4") {
+      bed <- "efficiencies_MGC4_mm10.bed" 
+    } else {
+      bed <- list.files("normalized_efficiency")[grepl("DOWNSAMPLED",
+                                                            list.files("normalized_efficiency"))]
+      bed <- bed[grepl("mm10", bed)]
+      bed <- bed[grepl(experiment, bed)]
+    }
+    
+    
+    experiment_mm10 <- read.table(paste0("normalized_efficiency/", bed),
+                                  header = T, stringsAsFactors = F)
+    
+    
+    gr_experiment <- makeGRangesFromDataFrame(experiment_mm10,
+                                         keep.extra.columns=F,
+                                         seqnames.field="chr", start.field="start",
+                                         end.field=c("end"),
+                                         starts.in.df.are.0based=FALSE)
+    
+    gr_experimental_group <- makeGRangesFromDataFrame(experimental_group[, 1:3],
+                                                      seqnames.field="V1", start.field="V2",
+                                                      end.field=c("V3"),
+                                                      starts.in.df.are.0based=FALSE)
+    
+    
+    # Ranges from the subset by in the experimental group
+    # Select the subset
+    experiment_mm10_subset <- experiment_mm10[overlapsAny(gr_experiment, 
+                                                          gr_experimental_group), ]
+    
+    # Save mm10 version
+    write.table(experiment_mm10_subset, 
+                file = paste0("classic_efficiencies/mm10/", 
+                              group, "_", experiment, "_mm10.bed" ),
+                quote = F,
+                sep = "\t",
+                row.names = F)
+    
+    print(c(group, experiment, length(gr_experimental_group), nrow(experiment_mm10_subset)))
+    # Liftover to mm9
+    gr <- makeGRangesFromDataFrame(experiment_mm10_subset,
+                                   keep.extra.columns=TRUE,
+                                   ignore.strand=FALSE,
+                                   seqinfo=NULL,
+                                   seqnames.field="chr", start.field="start", end.field=c("end"),
+                                   strand.field="strand",
+                                   starts.in.df.are.0based=FALSE)
+    
+    lifted <- unlist(liftOver(gr, mm10ToMm9.chain))
+    
+    df_lifted <- as.data.frame(lifted,
+                               row.names = NULL)
+    
+    # Not interested in having * strand column/ width column
+    df_lifted <- df_lifted[, colnames(df_lifted) != "strand"]
+    df_lifted <- df_lifted[, colnames(df_lifted) != "width"]
+    
+    colnames(df_lifted)[colnames(df_lifted) == "seqnames"] <- "chr"
+    
+    # saving
+    write.table(df_lifted, file = paste0("classic_efficiencies/mm9/", group, "_", experiment, "_mm9.bed" ),
+                quote = F,
+                sep = "\t",
+                row.names = F)
+  }
+}
+
+### Mean efficiency per group
+for(group in names(experimental_conditions_per_group)[9]) {
+  mm <- "mm10"
+  experiments_to_take <- experimental_conditions_per_group[[group]]
+  experimental_group <- get(group) # mm10
+  
+  gr_experimental_group <- makeGRangesFromDataFrame(experimental_group[, 1:3],
+                                                    seqnames.field="V1", start.field="V2", end.field=c("V3"),
+                                                    starts.in.df.are.0based=FALSE)
+  
+  all_experiments_in_group_sum <- experimental_group
+  # Matrix with sum of all values 
+  all_experiments_in_group_sum[, 4:7] <- 0
+  
+  nas <- all_experiments_in_group_sum
+  
+  for(experiment in experiments_to_take) {
+    exp <- read.table(paste0("classic_efficiencies/", mm, "/", group, "_", experiment, "_", mm, ".bed" ),
+                      sep = "\t",
+                      header = T)
+    gr_experiment <- makeGRangesFromDataFrame(exp,
+                                         keep.extra.columns=T,
+                                         seqnames.field="chr", start.field="start",
+                                         end.field=c("end"),
+                                         starts.in.df.are.0based=FALSE)
+    
+    fo <- findOverlaps(gr_experimental_group, gr_experiment)
+    
+    asdf <- by(as.data.frame(gr_experiment[subjectHits(fo)]), queryHits(fo), function(x) apply(x[,6:9], 2, mean))
+    
+    all_experiments_in_group_sum[as.numeric(names(asdf)), 4:7] <- all_experiments_in_group_sum[as.numeric(names(asdf)), 4:7] + do.call("rbind", asdf)
+    
+    # How many times the row was not NA (total by which we will divide the sum)
+    all_experiments_in_group_sum <- cbind(all_experiments_in_group_sum, appeared_in_sample = (1:nrow(all_experiments_in_group_sum) %in% queryHits(fo)))
+    
+  }
+  
+  # We divide the matrix of the sum by the total of experiments added
+  for(col_x in 4:7) {
+    all_experiments_in_group_sum[, col_x]  <- all_experiments_in_group_sum[, col_x]/apply(all_experiments_in_group_sum[8:ncol(all_experiments_in_group_sum)], 1, sum)
+  }
+  
+  all_experiments_in_group_sum <- all_experiments_in_group_sum[complete.cases(all_experiments_in_group_sum), 1:7]
+  
+  colnames(all_experiments_in_group_sum) <- colnames(exp)
+  
+group <- "constitutive_all_samples"
+
+  write.table(all_experiments_in_group_sum, 
+              file = paste0("classic_efficiencies/", mm, "/means_", mm, "/mean_efficiency_", group,  "_", mm, ".bed" ),
+              quote = F,
+              sep = "\t",
+              row.names = F)
+  
+  
+  # Liftover to mm9
+  mm <- "mm9"
+  gr <- makeGRangesFromDataFrame(all_experiments_in_group_sum,
+                                 keep.extra.columns=TRUE,
+                                 ignore.strand=FALSE,
+                                 seqinfo=NULL,
+                                 seqnames.field="chr", start.field="start", end.field=c("end"),
+                                 strand.field="strand",
+                                 starts.in.df.are.0based=FALSE)
+  
+  
+  lifted <- unlist(liftOver(gr, mm10ToMm9.chain))
+  
+  
+  df_lifted <- as.data.frame(lifted,
+                             row.names = NULL)
+  
+  # Not interested in having * strand column/ width column
+  df_lifted <- df_lifted[, colnames(df_lifted) != "strand"]
+  df_lifted <- df_lifted[, colnames(df_lifted) != "width"]
+  
+  colnames(df_lifted)[colnames(df_lifted) == "seqnames"] <- "chr"
+  
+  
+  # saving
+  write.table(df_lifted, file = paste0("classic_efficiencies/", mm, "/means_", mm, "/mean_efficiency_", group,  "_", mm, ".bed" ),
+              quote = F,
+              sep = "\t",
+              row.names = F)
+  
+}
+
+```

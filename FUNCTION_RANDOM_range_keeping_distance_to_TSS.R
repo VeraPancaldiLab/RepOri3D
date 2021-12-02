@@ -1,8 +1,7 @@
 RANDOM_range_keeping_distance_to_TSS <- function(range, seed = 1988) {
   
   
-  # In observed I want the number of overlaps of each window and the distance to the center
-  
+  # Chromosome selection
   range <- range[seqnames(range) %in% paste0("chr", c(1:19, "X"))]
   
   
@@ -45,8 +44,7 @@ RANDOM_range_keeping_distance_to_TSS <- function(range, seed = 1988) {
  
   random_oris <- as.data.frame(random_oris0, row.names = NULL)
   
-  # negative direction means upstream, so I need to add it to the gene start ,and vice versa
-  # Here I have changed the signs because they were wrong (29/01/2019)
+  # negative direction means upstream, so it needs to be add it to the gene start ,and vice versa
   
   # +1 genes
   random_oris$start[random_oris$Strand == 1] <- random_oris$start[random_oris$Strand == 1] - direction_and_distance$dist_corr_by_strand[random_oris$Strand == 1]
@@ -61,11 +59,7 @@ RANDOM_range_keeping_distance_to_TSS <- function(range, seed = 1988) {
  
   end(random_oris)   <- end(random_oris) + end_center_distance
   start(random_oris) <- start(random_oris) + start_center_distance
-  
-  ### These should be the same too
-  summary(width(range))
-  summary(width(random_oris))
-  
+
   random_oris
   
 }
