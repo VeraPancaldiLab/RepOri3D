@@ -15,6 +15,9 @@ https://bitbucket.org/eraineri/chaser/src/master/
 Another necessary package to process the chromatin network is igraph.
 
 Data to run these scripts or results of some of the most intensive computations (randomized networks) can be found at the following Figshare repositories :
-Gemeral origin positions and efficiency with data for enrichment in specific regions or chromatin states:https://doi.org/10.6084/m9.figshare.20425917.v1
-Data to perform the VOCHiC analysis (Virtual Origin Capture HiC using HiC data from Bonev et al. 2017) https://doi.org/10.6084/m9.figshare.20442777.v1
-Data to perform the origin analysis on Promoter Capture HiC networks from Schoenfelder et al. 2015 https://doi.org/10.6084/m9.figshare.20443077.v1
+<p>General origin positions and efficiency with data for enrichment in specific regions or chromatin states:https://doi.org/10.6084/m9.figshare.20425917.v1
+
+
+<p>Data to perform the VOCHiC analysis (Virtual Origin Capture HiC using HiC data from Bonev et al. 2017) https://doi.org/10.6084/m9.figshare.20442777.v1
+
+  <p>Data to perform the origin analysis on Promoter Capture HiC networks from Schoenfelder et al. 2015 https://doi.org/10.6084/m9.figshare.20443077.v1
