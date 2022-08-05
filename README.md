@@ -1,9 +1,10 @@
 Welcome to the code for reproducing the analysis of origins in the context of 3D chromatin structure from the following paper:
-**3D chromatin connectivity underlies replication origin efficiency in mouse embryonic stem cells
+<p><b>3D chromatin connectivity underlies replication origin efficiency in mouse embryonic stem cells</b>
+
 by Karolina Jodkowska*, Vera Pancaldi*, Maria Rigau, Ricardo Almeida, José M. Fernández-Justel, Osvaldo Graña-Castro, Sara Rodríguez-Acebes, Miriam Rubio-Camarillo, Enrique Carrillo-de Santa Pau, David Pisano, Fátima Al-Shahrour, Alfonso Valencia, María Gómez, Juan Méndez
 Currently available at https://www.biorxiv.org/content/10.1101/644971v2
 
-Code for the integration of Replication Origin datasets and chromatin structure can be found in 3 main noteboooks:
+Code for the integration of Replication Origin datasets and chromatin structure can be found in 3 main R noteboooks:
 RepOri_revision_VOCHiC_resubAugust2022.Rmd
 RepOri_revision_VPCHiC_resubAugust2022.Rmd
 RepOri_revision_PCHiC_resubAugust2022.Rmd
